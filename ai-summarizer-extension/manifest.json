@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "AI Page Summarizer",
+  "version": "1.0.0",
+  "description": "Highlights and summarizes any webpage with one click using AI.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AI Summarizer"
+  }
+}
