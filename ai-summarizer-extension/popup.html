@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Summarizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --accent: #7fff6e;
+      --accent-dim: rgba(127, 255, 110, 0.12);
+      --text: #e8e8f0;
+      --muted: #5a5a72;
+      --danger: #ff6b6b;
+    }
+
+    body {
+      width: 360px;
+      min-height: 200px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.85); }
+    }
+
+    .logo-text {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 2px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.05em;
+      opacity: 0.8;
+    }
+
+    .main {
+      padding: 18px;
+    }
+
+    /* ── Page info ── */
+    #page-info {
+      display: none;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #page-info.visible { display: block; }
+
+    /* ── Extracted text preview ── */
+    #text-preview {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 14px;
+      max-height: 120px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    #text-preview.visible { display: block; }
+
+    #text-preview p {
+      font-family: 'DM Mono', monospace;
+      font-size: 10.5px;
+      line-height: 1.65;
+      color: #9090a8;
+    }
+
+    #text-preview .preview-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    /* ── Summarize button ── */
+    #summarize-btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #050a04;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #summarize-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(127, 255, 110, 0.3);
+    }
+
+    #summarize-btn:active { transform: translateY(0); }
+
+    #summarize-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* ── Loading state ── */
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(5,10,4,0.3);
+      border-top-color: #050a04;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 7px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Summary output ── */
+    #summary-box {
+      display: none;
+      margin-top: 14px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(127, 255, 110, 0.25);
+      border-radius: 8px;
+      padding: 14px;
+      animation: fadeUp 0.3s ease;
+    }
+
+    #summary-box.visible { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    #summary-box .summary-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    #summary-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      line-height: 1.7;
+      color: #c8f0c0;
+    }
+
+    /* ── Error state ── */
+    #error-box {
+      display: none;
+      margin-top: 14px;
+      background: rgba(255, 107, 107, 0.08);
+      border: 1px solid rgba(255,107,107,0.25);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--danger);
+      line-height: 1.5;
+    }
+
+    #error-box.visible { display: block; }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 10px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-note {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+    }
+
+    #char-count {
+      font-family: 'DM Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+    }
+
+    /* ── Gear icon button ── */
+    #settings-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 4px;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+      display: flex;
+      align-items: center;
+    }
+    #settings-toggle:hover { color: var(--accent); background: var(--accent-dim); }
+    #settings-toggle.active { color: var(--accent); }
+
+    /* ── Settings panel ── */
+    #settings-panel {
+      display: none;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      animation: slideDown 0.2s ease;
+    }
+    #settings-panel.visible { display: block; }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .settings-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .key-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #api-key-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px 10px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+      letter-spacing: 0.04em;
+    }
+    #api-key-input::placeholder { color: var(--muted); }
+    #api-key-input:focus { border-color: var(--accent); }
+
+    #save-key-btn {
+      background: var(--accent);
+      color: #050a04;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 14px;
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    #save-key-btn:hover { opacity: 0.85; }
+
+    .key-status {
+      margin-top: 7px;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .key-status.saved  { color: var(--accent); }
+    .key-status.none   { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      <span class="logo-text">AI Summarizer</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="badge">v1.0</span>
+      <button id="settings-toggle" title="API Key Settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div id="settings-panel">
+    <div class="settings-label">OpenAI API Key</div>
+    <div class="key-row">
+      <input id="api-key-input" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+      <button id="save-key-btn">Save</button>
+    </div>
+    <div id="key-status" class="key-status none">No key saved</div>
+  </div>
+
+  <div class="main">
+    <div id="page-info"></div>
+
+    <div id="text-preview">
+      <div class="preview-label">Page text preview</div>
+      <p id="preview-content"></p>
+    </div>
+
+    <button id="summarize-btn">Extract Page Text</button>
+
+    <div id="summary-box">
+      <div class="summary-label">Summary</div>
+      <div id="summary-text"></div>
+    </div>
+
+    <div id="error-box" id="error-box"></div>
+  </div>
+
+  <div class="footer">
+    <span class="footer-note">Reads visible page content</span>
+    <span id="char-count"></span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
